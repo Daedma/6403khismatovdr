@@ -1,6 +1,7 @@
 import math
 import re
 import sys
+from typing import Callable
 
 def create_y(a:float, b:float, c:float) -> float:
     return lambda x : a * (math.sin(b * x) - (math.cos(c * x))**2)
@@ -14,7 +15,7 @@ def load_params(filename:str):
         params[field[0]] = float(field[1])
     return params
 
-def calc_in_range(func, lower, upper, step):
+def calc_in_range(func:Callable, lower:float, upper:float, step:float):
     values = list()
     x = float(lower)
     while x <= upper:
