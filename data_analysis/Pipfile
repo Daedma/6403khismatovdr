@@ -6,7 +6,8 @@ name = "pypi"
 [packages]
 pandas = "*"
 statsmodels = "*"
-yfinance = "*"
+yfinance = "*"  
+scikit-learn = "*"
 
 [dev-packages]
 

@@ -1,13 +1,17 @@
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import acf
+from sklearn.linear_model import LinearRegression
 
-def log_method(func):
-    def wrapper(*args, **kwargs):
-        print(f"Calling {func.__name__} with args: {args} and kwargs: {kwargs}")
-        result = func(*args, **kwargs)
-        print(f"{func.__name__} returned {result}")
-        return result
+def data_type_decorator(func):
+    def wrapper(self, *args, **kwargs):
+        if isinstance(self.data, list):
+            self.data = pd.Series(self.data)
+        elif isinstance(self.data, np.ndarray):
+            self.data = pd.Series(self.data)
+        elif not isinstance(self.data, pd.Series):
+            raise TypeError("Unsupported data type. Please provide a list, numpy array, or pandas Series.")
+        return func(self, *args, **kwargs)
     return wrapper
 
 class TimeSeries:
@@ -15,33 +19,42 @@ class TimeSeries:
         self.data = data
         self.results = pd.DataFrame()
 
-    @log_method
+    @data_type_decorator
     def moving_average(self, window_size):
         self.results['Moving_Average'] = self.data.rolling(window=window_size).mean()
         return self.results
 
-    @log_method
+    @data_type_decorator
     def differential(self):
         self.results['Differential'] = self.data.diff()
         return self.results
 
-    @log_method
+    @data_type_decorator
     def autocorrelation(self, lags):
         self.results['Autocorrelation'] = [acf(self.data, nlags=lags)[i] for i in range(lags+1)]
         return self.results
 
-    @log_method
+    @data_type_decorator
     def find_extremes(self):
         local_max = (self.data.shift(1) < self.data) & (self.data.shift(-1) < self.data)
         local_min = (self.data.shift(1) > self.data) & (self.data.shift(-1) > self.data)
         self.results['Local_Max'] = self.data[local_max]
-        self.results['Local_Min'] = self.data[local_min]
+        self.results['Local_Min'] = self.data[local_min]                        
         return self.results
 
-    @log_method
-    def save_to_excel(self, filename):
-        self.results.to_excel(filename, index=False)
+    @data_type_decorator
+    def forecast(self, steps):
+        # Подготовка данных для линейной регрессии
+        X = np.arange(len(self.data)).reshape(-1, 1)
+        y = self.data.values
 
-    def result_generator(self):
-        for column in self.results.columns:
-            yield column, self.results[column]
+        # Обучение модели линейной регрессии
+        model = LinearRegression()
+        model.fit(X, y)
+
+        # Генерация прогнозируемых значений
+        last_index = len(self.data)
+        for i in range(steps):
+            forecast_index = np.array([[last_index + i]])
+            forecast_value = model.predict(forecast_index)[0]
+            yield forecast_value
