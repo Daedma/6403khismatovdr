@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-from statsmodels.tsa.stattools import acf
 from statsmodels.tsa.arima.model import ARIMA
 from typing import Generator, Any, Tuple
+from sklearn.linear_model import LinearRegression
 
 
 def require_min_data_size(min_size: int):
@@ -32,9 +32,18 @@ class TimeSeries:
         """
         Инициализация временного ряда.
 
-        :param data: Список данных временного ряда.
+        :param data: Данные временного ряда (список, numpy.array или pandas.DataFrame).
         """
-        self.data = data
+        if isinstance(data, list):
+            self.data = np.array(data)
+        elif isinstance(data, np.ndarray):
+            self.data = data
+        elif isinstance(data, pd.DataFrame):
+            if data.shape[1] != 1:
+                raise ValueError("DataFrame must contain exactly one column")
+            self.data = data.values.flatten()
+        else:
+            raise TypeError("Unsupported data type")
 
     def smoothed(self, window_size: int) -> Generator[float, Any, Any]:
         """
