@@ -53,11 +53,14 @@ class TimeSeries:
         """
         n = len(self.data)
         mean = np.mean(self.data)
-        c0 = np.sum((self.data - mean) ** 2) / n
+        c0 = np.sum((self.data - mean) ** 2)
 
-        for k in range(1, lag + 1):
-            ck = np.sum((self.data[:-k] - mean) * (self.data[k:] - mean)) / n
-            yield ck / c0
+        for k in range(lag + 1):
+            if k == 0:
+                yield 1.0
+            else:
+                ck = np.sum((self.data[:-k] - mean) * (self.data[k:] - mean))
+                yield ck / c0
 
     @require_min_data_size(3)
     def find_extrema(self):
@@ -75,6 +78,7 @@ class TimeSeries:
             elif self.data[i] < self.data[i - 1] and self.data[i] < self.data[i + 1]:
                 yield (i, self.data[i], "min")
 
+    @require_min_data_size(3)
     def forecast(self, steps, order=(1, 1, 1)):
         """
         Генератор для прогнозирования будущих значений временного ряда с использованием модели ARIMA.
