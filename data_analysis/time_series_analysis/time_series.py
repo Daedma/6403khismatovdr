@@ -2,9 +2,16 @@ import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import acf
 from statsmodels.tsa.arima.model import ARIMA
+from typing import Generator, Any, Tuple
 
 
-def require_min_data_size(min_size):
+def require_min_data_size(min_size: int):
+    """
+    Декоратор для проверки минимального размера данных.
+
+    :param min_size: Минимальный размер данных.
+    """
+
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             if len(self.data) < min_size:
@@ -17,14 +24,24 @@ def require_min_data_size(min_size):
 
 
 class TimeSeries:
-    def __init__(self, data):
+    """
+    Класс для работы с временными рядами.
+    """
+
+    def __init__(self, data: list):
+        """
+        Инициализация временного ряда.
+
+        :param data: Список данных временного ряда.
+        """
         self.data = data
 
-    def smoothed(self, window_size):
+    def smoothed(self, window_size: int) -> Generator[float, Any, Any]:
         """
         Генератор для сглаживания временного ряда с использованием скользящего среднего.
 
         :param window_size: Размер окна для скользящего среднего.
+        :return: Сглаженные значения временного ряда.
         """
         if window_size <= 0:
             raise ValueError("Размер окна должен быть положительным числом.")
@@ -38,18 +55,21 @@ class TimeSeries:
                 yield sum(window) / window_size
 
     @require_min_data_size(2)
-    def difference(self):
+    def difference(self) -> Generator[float, Any, Any]:
         """
         Генератор для дифференцирования временного ряда.
+
+        :return: Дифференцированные значения временного ряда.
         """
         for i in range(1, len(self.data)):
             yield self.data[i] - self.data[i - 1]
 
-    def autocorrelation(self, lag):
+    def autocorrelation(self, lag: int) -> Generator[float, Any, Any]:
         """
         Генератор для вычисления автокорреляции временного ряда.
 
         :param lag: Лаг для вычисления автокорреляции.
+        :return: Значения автокорреляции.
         """
         n = len(self.data)
         mean = np.mean(self.data)
@@ -63,9 +83,11 @@ class TimeSeries:
                 yield ck / c0
 
     @require_min_data_size(3)
-    def find_extrema(self):
+    def find_extrema(self) -> Generator[Tuple[int, float, str], Any, Any]:
         """
         Генератор для нахождения точек экстремума (локальных максимумов и минимумов) в временном ряду.
+
+        :return: Кортежи с индексами, значениями и типами экстремумов.
         """
         if len(self.data) < 3:
             raise ValueError(
@@ -79,12 +101,15 @@ class TimeSeries:
                 yield (i, self.data[i], "min")
 
     @require_min_data_size(3)
-    def forecast(self, steps, order=(1, 1, 1)):
+    def forecast(
+        self, steps: int, order: Tuple[int, int, int] = (1, 1, 1)
+    ) -> Generator[float, Any, Any]:
         """
         Генератор для прогнозирования будущих значений временного ряда с использованием модели ARIMA.
 
         :param steps: Количество шагов для прогнозирования.
         :param order: Порядок модели ARIMA (p, d, q).
+        :return: Прогнозируемые значения.
         """
         model = ARIMA(self.data, order=order)
         model_fit = model.fit()
