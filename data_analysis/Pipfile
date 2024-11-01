@@ -8,6 +8,7 @@ pandas = "*"
 statsmodels = "*"
 yfinance = "*"  
 scikit-learn = "*"
+openpyxl = "*
 
 [dev-packages]
 
