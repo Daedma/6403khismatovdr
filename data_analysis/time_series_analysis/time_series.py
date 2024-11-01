@@ -1,60 +1,90 @@
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import acf
-from sklearn.linear_model import LinearRegression
+from statsmodels.tsa.arima.model import ARIMA
 
-def data_type_decorator(func):
-    def wrapper(self, *args, **kwargs):
-        if isinstance(self.data, list):
-            self.data = pd.Series(self.data)
-        elif isinstance(self.data, np.ndarray):
-            self.data = pd.Series(self.data)
-        elif not isinstance(self.data, pd.Series):
-            raise TypeError("Unsupported data type. Please provide a list, numpy array, or pandas Series.")
-        return func(self, *args, **kwargs)
-    return wrapper
+
+def require_min_data_size(min_size):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            if len(self.data) < min_size:
+                raise ValueError(f"Data must contain at least {min_size} elements")
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
 
 class TimeSeries:
     def __init__(self, data):
         self.data = data
-        self.results = pd.DataFrame()
 
-    @data_type_decorator
-    def moving_average(self, window_size):
-        self.results['Moving_Average'] = self.data.rolling(window=window_size).mean()
-        return self.results
+    def smoothed(self, window_size):
+        """
+        Генератор для сглаживания временного ряда с использованием скользящего среднего.
 
-    @data_type_decorator
-    def differential(self):
-        self.results['Differential'] = self.data.diff()
-        return self.results
+        :param window_size: Размер окна для скользящего среднего.
+        """
+        if window_size <= 0:
+            raise ValueError("Размер окна должен быть положительным числом.")
 
-    @data_type_decorator
-    def autocorrelation(self, lags):
-        self.results['Autocorrelation'] = [acf(self.data, nlags=lags)[i] for i in range(lags+1)]
-        return self.results
+        window = []
+        for value in self.data:
+            window.append(value)
+            if len(window) > window_size:
+                window.pop(0)
+            if len(window) == window_size:
+                yield sum(window) / window_size
 
-    @data_type_decorator
-    def find_extremes(self):
-        local_max = (self.data.shift(1) < self.data) & (self.data.shift(-1) < self.data)
-        local_min = (self.data.shift(1) > self.data) & (self.data.shift(-1) > self.data)
-        self.results['Local_Max'] = self.data[local_max]
-        self.results['Local_Min'] = self.data[local_min]                        
-        return self.results
+    @require_min_data_size(2)
+    def difference(self):
+        """
+        Генератор для дифференцирования временного ряда.
+        """
+        for i in range(1, len(self.data)):
+            yield self.data[i] - self.data[i - 1]
 
-    @data_type_decorator
-    def forecast(self, steps):
-        # Подготовка данных для линейной регрессии
-        X = np.arange(len(self.data)).reshape(-1, 1)
-        y = self.data.values
+    def autocorrelation(self, lag):
+        """
+        Генератор для вычисления автокорреляции временного ряда.
 
-        # Обучение модели линейной регрессии
-        model = LinearRegression()
-        model.fit(X, y)
+        :param lag: Лаг для вычисления автокорреляции.
+        """
+        n = len(self.data)
+        mean = np.mean(self.data)
+        c0 = np.sum((self.data - mean) ** 2) / n
 
-        # Генерация прогнозируемых значений
-        last_index = len(self.data)
-        for i in range(steps):
-            forecast_index = np.array([[last_index + i]])
-            forecast_value = model.predict(forecast_index)[0]
+        for k in range(1, lag + 1):
+            ck = np.sum((self.data[:-k] - mean) * (self.data[k:] - mean)) / n
+            yield ck / c0
+
+    @require_min_data_size(3)
+    def find_extrema(self):
+        """
+        Генератор для нахождения точек экстремума (локальных максимумов и минимумов) в временном ряду.
+        """
+        if len(self.data) < 3:
+            raise ValueError(
+                "Для нахождения экстремумов необходимо минимум три значения."
+            )
+
+        for i in range(1, len(self.data) - 1):
+            if self.data[i] > self.data[i - 1] and self.data[i] > self.data[i + 1]:
+                yield (i, self.data[i], "max")
+            elif self.data[i] < self.data[i - 1] and self.data[i] < self.data[i + 1]:
+                yield (i, self.data[i], "min")
+
+    def forecast(self, steps, order=(1, 1, 1)):
+        """
+        Генератор для прогнозирования будущих значений временного ряда с использованием модели ARIMA.
+
+        :param steps: Количество шагов для прогнозирования.
+        :param order: Порядок модели ARIMA (p, d, q).
+        """
+        model = ARIMA(self.data, order=order)
+        model_fit = model.fit()
+
+        for _ in range(steps):
+            forecast_value = model_fit.forecast()[0]
             yield forecast_value
