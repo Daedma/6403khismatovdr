@@ -1,6 +1,7 @@
 import unittest
 from statsmodels.tsa.stattools import acf
 from time_series_analysis.time_series import TimeSeries
+from numpy.testing import assert_almost_equal
 
 
 class TestTimeSeries(unittest.TestCase):
@@ -31,9 +32,7 @@ class TestTimeSeries(unittest.TestCase):
     def test_autocorrelation(self):
         autocorrelation_data = list(self.ts.autocorrelation(3))
         expected_data = acf(self.data, nlags=3)
-        self.assertAlmostEqual(autocorrelation_data[0], expected_data[0], places=5)
-        self.assertAlmostEqual(autocorrelation_data[1], expected_data[1], places=5)
-        self.assertAlmostEqual(autocorrelation_data[2], expected_data[2], places=5)
+        assert_almost_equal(autocorrelation_data, expected_data, 5)
 
     def test_find_extrema(self):
         extrema_data = list(self.ts.find_extrema())
