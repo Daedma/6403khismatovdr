@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
 from typing import Generator, Any, Tuple
-from sklearn.linear_model import LinearRegression
 
 
 def require_min_data_size(min_size: int):
