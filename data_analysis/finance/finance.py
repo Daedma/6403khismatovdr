@@ -9,6 +9,6 @@ class Finance:
         price = stock.info['regularMarketPrice']
         return price
 
-    def get_period(self, period):
-        data = yf.download(self._ticker, period=period)
+    def get_period(self, period='30m', interval='1m'):
+        data = yf.download(self._ticker, period=period, interval=interval)
         return data["Close"].values
