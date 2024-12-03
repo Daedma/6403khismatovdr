@@ -66,6 +66,7 @@ class DataMonitor:
         self.__thread = None
         self.__logger = logging.getLogger(__name__)
         self.__data = np.array([])
+        self.__analyzer = TimeSeries(self.__data)
 
     def run(self, output_file: str = "out.txt") -> None:
         """
@@ -82,9 +83,10 @@ class DataMonitor:
             Если сервис уже запущен.
         """
         self.__prerun()
+        self.__analyzer= TimeSeries(self.__data)
         if self.__thread is not None:
             error = RuntimeError("Попытка повторного запуска сервиса")
-            self.__logger.warning(error)
+            self.__logger.error(error)
             raise error
         self.__cancellation_token = CancellationToken()
         self.__thread = threading.Thread(
@@ -109,7 +111,7 @@ class DataMonitor:
         """
         if self.__thread is None:
             error = RuntimeError("Попытка остановить незапущенный сервис")
-            self.__logger.warning(error)
+            self.__logger.error(error)
             raise error
         self.__cancellation_token.cancel()
         self.__thread.join()
@@ -132,15 +134,18 @@ class DataMonitor:
         while not cancellation_token.is_canceled():
             value = self.__data_source.get_current()
             self.__data = np.append(self.__data, value)
-            time_series = TimeSeries(self.__data)
-            with open(output_file, "a") as file:
-                file.write(f"Текущий ряд : {list(time_series.data)}\n")
-                file.write(f"Автокорреляция : {list(time_series.autocorrelation(2))}\n")
-                file.write(f"Скользящее среднее : {list(time_series.smoothed(3))}\n")
-                file.write(f"Дифференциал : {list(time_series.difference())}\n")
-                file.write(f"Экстремумы : {list(time_series.find_extrema())}\n")
-                file.write("\n")
-            self.__logger.info(f"Данные записаны в файл: {output_file}")
+            self.__analyzer.data = self.__data
+            try:
+                with open(output_file, "a") as file:
+                    file.write(f"Текущий ряд : {list(self.__data)}\n")
+                    file.write(f"Автокорреляция : {list(self.__analyzer.autocorrelation(2))}\n")
+                    file.write(f"Скользящее среднее : {list(self.__analyzer.smoothed(3))}\n")
+                    file.write(f"Дифференциал : {list(self.__analyzer.difference())}\n")
+                    file.write(f"Экстремумы : {list(self.__analyzer.find_extrema())}\n")
+                    file.write("\n")
+                self.__logger.info(f"Данные записаны в файл: {output_file}")
+            except:
+                self.__logger.warning(f"Не удалось записать данные в файл: {output_file}")
             time.sleep(5)
 
     def __prerun(self) -> None:
@@ -158,5 +163,5 @@ class DataMonitor:
             self.__logger.info("Загрузка прошла успешно")
         except:
             error = RuntimeError("Ошибка при загрузке данных")
-            self.__logger.warning(error)
+            self.__logger.error(error)
             raise error

@@ -1,4 +1,5 @@
 import yfinance as yf
+import logging
 
 
 class FinanceData:
@@ -21,6 +22,7 @@ class FinanceData:
             Тикер акции для получения финансовых данных.
         """
         self._ticker = ticker
+        self.__logger = logging.getLogger(__name__)
 
     def get_current(self) -> float:
         """
@@ -31,8 +33,13 @@ class FinanceData:
         float
             Текущая цена закрытия акции.
         """
-        stock = yf.Ticker(self._ticker)
-        current_price = stock.history(period="1d")["Close"][0]
+        try:
+            stock = yf.Ticker(self._ticker)
+            current_price = stock.history(period="1d")["Close"].iloc[0]
+        except:
+            error = RuntimeError("Ошибка при получении актуальной цены")
+            self.__logger.error(error)
+            raise error
         return current_price
 
     def get_period(self, period: str = "1mo", interval: str = "1d") -> list:
@@ -51,5 +58,10 @@ class FinanceData:
         list
             Список исторических цен закрытия акции за указанный период и интервал.
         """
-        data = yf.download(self._ticker, period=period, interval=interval)
+        try:
+            data = yf.download(self._ticker, period=period, interval=interval)
+        except:
+            error = RuntimeError("Ошибка при получении данных за период")
+            self.__logger.error(error)
+            raise error
         return data["Close"].values

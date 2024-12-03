@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import logging
 from statsmodels.tsa.arima.model import ARIMA
 from typing import Generator, Any, Tuple
 
@@ -11,9 +12,11 @@ def require_min_data_size(min_size: int):
     :param min_size: Минимальный размер данных.
     """
 
+    logger = logging.getLogger(__name__)
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             if len(self.data) < min_size:
+                logger.error(f"Data must contain at least {min_size} elements")
                 raise ValueError(f"Data must contain at least {min_size} elements")
             return func(self, *args, **kwargs)
 
@@ -33,15 +36,18 @@ class TimeSeries:
 
         :param data: Данные временного ряда (список, numpy.array или pandas.DataFrame).
         """
+        self.__logger = logging.getLogger(__name__)
         if isinstance(data, list):
             self.data = np.array(data)
         elif isinstance(data, np.ndarray):
             self.data = data
         elif isinstance(data, pd.DataFrame):
             if data.shape[1] != 1:
+                self.__logger.error("DataFrame must contain exactly one column")
                 raise ValueError("DataFrame must contain exactly one column")
             self.data = data.values.flatten()
         else:
+            self.__logger.error("Unsupported data type")
             raise TypeError("Unsupported data type")
 
     def smoothed(self, window_size: int) -> Generator[float, Any, Any]:
@@ -52,6 +58,7 @@ class TimeSeries:
         :return: Сглаженные значения временного ряда.
         """
         if window_size <= 0:
+            self.__logger.error("Размер окна должен быть положительным числом.")
             raise ValueError("Размер окна должен быть положительным числом.")
 
         window = []
@@ -98,6 +105,7 @@ class TimeSeries:
         :return: Кортежи с индексами, значениями и типами экстремумов.
         """
         if len(self.data) < 3:
+            self.__logger.error("Для нахождения экстремумов необходимо минимум три значения.")
             raise ValueError(
                 "Для нахождения экстремумов необходимо минимум три значения."
             )
